@@ -1,0 +1,209 @@
+package Evaluable1;
+
+import java.awt.BorderLayout;
+import java.awt.EventQueue;
+
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.border.EmptyBorder;
+import java.awt.Color;
+import javax.swing.border.LineBorder;
+import javax.swing.JLabel;
+import java.awt.Font;
+import javax.swing.JTextField;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JFileChooser;
+import javax.swing.JTextArea;
+
+import java.text.Normalizer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+import javax.swing.JScrollPane;
+
+public class Vista extends JFrame {
+
+    private static final long serialVersionUID = 1L;
+    private JPanel contentPane;
+    private JTextField txtDirectori;
+    private JTextField txtParaula;
+    private JTextField txtReemplaçar;
+    private JTextArea txtAreaResultats;
+    private JButton btnDirectori;
+    private JButton btnParaula;
+    private JButton btnReemplaçar;
+    private JCheckBox chkAccents;
+    private JCheckBox chkMayusMinus;
+
+    /**
+     * Launch the application.
+     */
+    public static void main(String[] args) {
+        EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                try {
+                    Vista frame = new Vista();
+                    frame.setVisible(true);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    private void seleccionarDirectori() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        int resultat = fileChooser.showOpenDialog(this);
+
+        if (resultat == JFileChooser.APPROVE_OPTION) {
+            File directoriSeleccionat = fileChooser.getSelectedFile();
+            txtDirectori.setText(directoriSeleccionat.getAbsolutePath());
+        }
+    }
+
+    private void llistarArbreFitxers(File directori, String prefix, String subPrefix) {
+        File[] fitxers = directori.listFiles();
+
+        if (fitxers != null && fitxers.length > 0) {
+            for (int i = 0; i < fitxers.length; i++) {
+                File fitxer = fitxers[i];
+                boolean esUltim = (i == fitxers.length - 1);
+
+                if (fitxer.isDirectory()) {
+                    txtAreaResultats.append(prefix + (esUltim ? "|-- " : "|-- ") + fitxer.getName() + "\n");
+                    llistarArbreFitxers(fitxer, subPrefix + (esUltim ? "    " : "|   "),
+                            subPrefix + (esUltim ? "    " : "|   "));
+                } else {
+                    mostrarInformacioFitxer(fitxer, prefix + (esUltim ? "|-- " : "|-- "));
+                }
+            }
+        }
+    }
+
+    private void mostrarInformacioFitxer(File fitxer, String prefix) {
+        String nomFitxer = fitxer.getName();
+        String extensio = obtenirExtensio(fitxer);
+        double grandaria = fitxer.length() / 1024.0;
+        String ultimaModificacio = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new Date(fitxer.lastModified()));
+        txtAreaResultats.append(
+                prefix + nomFitxer + " (" + String.format("%.2f", grandaria) + " KB – " + ultimaModificacio + ")\n");
+    }
+
+    private String obtenirExtensio(File fitxer) {
+        String nomFitxer = fitxer.getName();
+        int index = nomFitxer.lastIndexOf(".");
+        if (index > 0 && index < nomFitxer.length() - 1) {
+            return nomFitxer.substring(index + 1);
+        }
+        return "Sense extensió";
+    }
+
+    private void buscarParaulaEnArbre(File directori, String paraula, String prefix, String subPrefix) {
+        File[] fitxers = directori.listFiles();
+
+        if (fitxers != null && fitxers.length > 0) {
+            for (int i = 0; i < fitxers.length; i++) {
+                File fitxer = fitxers[i];
+                boolean esUltim = (i == fitxers.length - 1);
+
+                if (fitxer.isDirectory()) {
+                    txtAreaResultats.append(prefix + (esUltim ? "|-- " : "|-- ") + fitxer.getName() + "\n");
+                    buscarParaulaEnArbre(fitxer, paraula, subPrefix + (esUltim ? "    " : "|   "), subPrefix + (esUltim ? "    " : "|   "));
+                } else {
+                    mostrarCoincidencies(fitxer, paraula, prefix + (esUltim ? "|-- " : "|-- "));
+                }
+            }
+        }
+    }
+
+    private void mostrarCoincidencies(File fitxer, String paraula, String prefix) {
+        int contador = 0;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(fitxer, StandardCharsets.UTF_8))) {
+            String linia;
+            while ((linia = br.readLine()) != null) {
+                if (chkMayusMinus.isSelected()) {
+                    linia = convertirMinuscules(linia);
+                }
+                if (chkAccents.isSelected()) {
+                    linia = normalitzarSenseAccents(linia);
+                }
+
+                int indice = linia.indexOf(paraula);
+                while (indice != -1) {
+                    contador++;
+                    indice = linia.indexOf(paraula, indice + 1);
+                }
+            }
+        } catch (IOException e) {
+            txtAreaResultats.append(prefix + "Error llegint el fitxer: " + fitxer.getName() + "\n");
+        }
+
+        txtAreaResultats.append(prefix + fitxer.getName() + " (" + contador + " coincidències)\n");
+    }
+
+    private String normalitzarSenseAccents(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+    }
+
+    private String convertirMinuscules(String text) {
+        return text.toLowerCase();
+    }
+
+    private void buscarYReemplaçarParaulaEnArbre(File directori, String paraula, String reemplaçar, String prefix, String subPrefix) {
+        File[] fitxers = directori.listFiles();
+
+        if (fitxers != null && fitxers.length > 0) {
+            for (int i = 0; i < fitxers.length; i++) {
+                File fitxer = fitxers[i];
+                boolean esUltim = (i == fitxers.length - 1);
+
+                if (fitxer.isDirectory()) {
+                    txtAreaResultats.append(prefix + (esUltim ? "|-- " : "|-- ") + fitxer.getName() + "\n");
+                    buscarYReemplaçarParaulaEnArbre(fitxer, paraula, reemplaçar, subPrefix + (esUltim ? "    " : "|   "), subPrefix + (esUltim ? "    " : "|   "));
+                } else {
+                    if (fitxer.getName().endsWith(".txt")) {
+                        reemplaçarParaulesEnFitxer(fitxer, paraula, reemplaçar, prefix + (esUltim ? "|-- " : "|-- "));
+                    } else {
+                        txtAreaResultats.append(prefix + fitxer.getName() + " (Fitxer no accessible per reemplaçar)\n");
+                    }
+                }
+            }
+        }
+    }
+
+    private void reemplaçarParaulesEnFitxer(File fitxer, String paraula, String reemplaçar, String prefix) {
+        int contadorReemplaços = 0;
+        StringBuilder contingutNou = new StringBuilder();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(fitxer, StandardCharsets.UTF_8))) {
+            String linia;
+
+            while ((linia = br.readLine()) != null) {
+                String liniaOriginal = linia;
+
+                // Convertir según las opciones seleccionadas
+                if (chkMayusMinus.isSelected()) {
+                    linia = convertirMinuscules(linia);
+                    paraula = convertirMinuscules(paraula);
+                }
+
+                if (chkAccents.isSelected()) {
+                    linia = normalitzarSenseAccents(linia);
+                    paraula = normalitzarSenseAccents(paraula);
+                }
+
+                // Reemplazar la palabra
+                linia = linia.replace(paraula, reemplaçar);
+                contingutNou.append(linia).append("\n");
+
+                if (!linia.equals(liniaOriginal)) {
+                    // Contar el número de reemplazos hechos
+                    int reemplazosEnLinea = (liniaOriginal.length() - linia.length()) / paraula.length();
+                    contadorReemplaços += reemplazosEnLinea;
+                }

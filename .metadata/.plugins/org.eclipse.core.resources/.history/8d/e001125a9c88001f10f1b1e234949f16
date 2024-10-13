@@ -1,0 +1,385 @@
+package Evaluable1;
+
+import java.awt.BorderLayout;
+import java.awt.EventQueue;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.border.EmptyBorder;
+import java.awt.Color;
+import javax.swing.border.LineBorder;
+import javax.swing.JLabel;
+import java.awt.Font;
+import javax.swing.JTextField;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JFileChooser;
+import javax.swing.JTextArea;
+import java.text.Normalizer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+import javax.swing.JScrollPane;
+
+/**
+ * Classe Vista que representa la interfície gràfica per a la gestió de fitxers.
+ */
+public class Vista extends JFrame {
+
+    private static final long serialVersionUID = 1L;
+    private JPanel contentPane;
+    private JTextField txtDirectori;
+    private JTextField txtParaula;
+    private JTextField txtReemplaçar;
+    private JTextArea txtAreaResultats;
+    private JButton btnDirectori;
+    private JButton btnParaula;
+    private JButton btnReemplaçar;
+    private JCheckBox chkAccents;
+    private JCheckBox chkMayusMinus;
+
+    /**
+     * Mètode principal que inicia l'aplicació.
+     * 
+     * @param args Arguments de línia de comandes.
+     */
+    public static void main(String[] args) {
+        EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                try {
+                    Vista frame = new Vista();
+                    frame.setVisible(true);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    /**
+     * Obre un diàleg per seleccionar un directori. Actualitza el camp de text amb
+     * la ruta del directori seleccionat.
+     */
+    private void seleccionarDirectori() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        int resultat = fileChooser.showOpenDialog(this);
+
+        if (resultat == JFileChooser.APPROVE_OPTION) {
+            File directoriSeleccionat = fileChooser.getSelectedFile();
+            txtDirectori.setText(directoriSeleccionat.getAbsolutePath());
+        }
+    }
+
+    /**
+     * Llista recursivament els fitxers i subdirectoris d'un directori.
+     * 
+     * @param directori El directori a llistar.
+     * @param prefix    Prefix per a la visualització.
+     * @param subPrefix Prefix addicional per a subdirectoris.
+     */
+    private void llistarArbreFitxers(File directori, String prefix, String subPrefix) {
+        File[] fitxers = directori.listFiles();
+
+        if (fitxers != null && fitxers.length > 0) {
+            for (int i = 0; i < fitxers.length; i++) {
+                File fitxer = fitxers[i];
+                boolean esUltim = (i == fitxers.length - 1);
+
+                if (fitxer.isDirectory()) {
+                    txtAreaResultats.append(prefix + (esUltim ? "|-- " : "|-- ") + fitxer.getName() + "\n");
+                    llistarArbreFitxers(fitxer, subPrefix + (esUltim ? "    " : "|   "),
+                            subPrefix + (esUltim ? "    " : "|   "));
+                } else {
+                    mostrarInformacioFitxer(fitxer, prefix + (esUltim ? "|-- " : "|-- "));
+                }
+            }
+        }
+    }
+
+    /**
+     * Mostra informació detallada d'un fitxer.
+     * 
+     * @param fitxer El fitxer del qual mostrar la informació.
+     * @param prefix Prefix per a la visualització.
+     */
+    private void mostrarInformacioFitxer(File fitxer, String prefix) {
+        String nomFitxer = fitxer.getName();
+        String extensio = obtenirExtensio(fitxer);
+        double grandaria = fitxer.length() / 1024.0;
+        String ultimaModificacio = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new Date(fitxer.lastModified()));
+        txtAreaResultats.append(
+                prefix + nomFitxer + " (" + String.format("%.2f", grandaria) + " KB – " + ultimaModificacio + ")\n");
+    }
+
+    /**
+     * Obté l'extensió d'un fitxer.
+     * 
+     * @param fitxer El fitxer del qual obtenir l'extensió.
+     * @return L'extensió del fitxer o "Sense extensió" si no en té.
+     */
+    private String obtenirExtensio(File fitxer) {
+        String nomFitxer = fitxer.getName();
+        int index = nomFitxer.lastIndexOf(".");
+        if (index > 0 && index < nomFitxer.length() - 1) {
+            return nomFitxer.substring(index + 1);
+        }
+        return "Sense extensió";
+    }
+
+    /**
+     * Busca una paraula en l'estructura de fitxers d'un directori.
+     * 
+     * @param directori El directori en el qual buscar.
+     * @param paraula   La paraula a buscar.
+     * @param prefix    Prefix per a la visualització.
+     * @param subPrefix Prefix addicional per a subdirectoris.
+     */
+    private void buscarParaulaEnArbre(File directori, String paraula, String prefix, String subPrefix) {
+        File[] fitxers = directori.listFiles();
+
+        if (fitxers != null && fitxers.length > 0) {
+            for (int i = 0; i < fitxers.length; i++) {
+                File fitxer = fitxers[i];
+                boolean esUltim = (i == fitxers.length - 1);
+
+                if (fitxer.isDirectory()) {
+                    txtAreaResultats.append(prefix + (esUltim ? "|-- " : "|-- ") + fitxer.getName() + "\n");
+                    buscarParaulaEnArbre(fitxer, paraula, subPrefix + (esUltim ? "    " : "|   "),
+                            subPrefix + (esUltim ? "    " : "|   "));
+                } else {
+                    mostrarCoincidencies(fitxer, paraula, prefix + (esUltim ? "|-- " : "|-- "));
+                }
+            }
+        }
+    }
+
+    /**
+     * Mostra les coincidències d'una paraula en un fitxer.
+     * 
+     * @param fitxer  El fitxer en el qual buscar.
+     * @param paraula La paraula a buscar.
+     * @param prefix  Prefix per a la visualització.
+     */
+    private void mostrarCoincidencies(File fitxer, String paraula, String prefix) {
+        int contador = 0;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(fitxer, StandardCharsets.UTF_8))) {
+            String linia;
+            while ((linia = br.readLine()) != null) {
+
+                if (chkMayusMinus.isSelected()) {
+                    linia = convertirMinuscules(linia);
+                }
+                if (chkAccents.isSelected()) {
+                    linia = normalitzarSenseAccents(linia);
+                }
+
+                int indice = linia.indexOf(paraula);
+                while (indice != -1) {
+                    contador++;
+                    indice = linia.indexOf(paraula, indice + 1);
+                }
+            }
+        } catch (IOException e) {
+            txtAreaResultats.append(prefix + "Error llegint el fitxer: " + fitxer.getName() + "\n");
+        }
+
+        txtAreaResultats.append(prefix + fitxer.getName() + " (" + contador + " coincidències)\n");
+    }
+
+    /**
+     * Normalitza un text per eliminar els accents.
+     * 
+     * @param text El text a normalitzar.
+     * @return El text sense accents.
+     */
+    private String normalitzarSenseAccents(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+    }
+
+    /**
+     * Converteix un text a minúscules.
+     * 
+     * @param text El text a convertir.
+     * @return El text en minúscules.
+     */
+    private String convertirMinuscules(String text) {
+        return text.toLowerCase();
+    }
+
+    /**
+     * Busca i reemplaça una paraula en l'estructura de fitxers.
+     * 
+     * @param directori  El directori en el qual buscar.
+     * @param paraula    La paraula a buscar.
+     * @param reemplaçar La paraula amb la qual reemplaçar.
+     * @param prefix     Prefix per a la visualització.
+     * @param subPrefix  Prefix addicional per a subdirectoris.
+     */
+    private void buscarYReemplaçarParaulaEnArbre(File directori, String paraula, String reemplaçar, String prefix,
+            String subPrefix) {
+        File[] fitxers = directori.listFiles();
+
+        if (fitxers != null && fitxers.length > 0) {
+            for (int i = 0; i < fitxers.length; i++) {
+                File fitxer = fitxers[i];
+                boolean esUltim = (i == fitxers.length - 1);
+
+                if (fitxer.isDirectory()) {
+                    txtAreaResultats.append(prefix + (esUltim ? "|-- " : "|-- ") + fitxer.getName() + "\n");
+                    buscarYReemplaçarParaulaEnArbre(fitxer, paraula, reemplaçar, subPrefix + (esUltim ? "    " : "|   "),
+                            subPrefix + (esUltim ? "    " : "|   "));
+                } else {
+                    reemplaçarCoincidencies(fitxer, paraula, reemplaçar, prefix + (esUltim ? "|-- " : "|-- "));
+                }
+            }
+        }
+    }
+
+    /**
+     * Reemplaça coincidències d'una paraula en un fitxer.
+     * 
+     * @param fitxer      El fitxer en el qual buscar.
+     * @param paraula     La paraula a buscar.
+     * @param reemplaçar  La paraula amb la qual reemplaçar.
+     * @param prefix      Prefix per a la visualització.
+     */
+    private void reemplaçarCoincidencies(File fitxer, String paraula, String reemplaçar, String prefix) {
+        StringBuilder contingut = new StringBuilder();
+        int contador = 0;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(fitxer, StandardCharsets.UTF_8))) {
+            String linia;
+            while ((linia = br.readLine()) != null) {
+                if (chkMayusMinus.isSelected()) {
+                    linia = convertirMinuscules(linia);
+                }
+                if (chkAccents.isSelected()) {
+                    linia = normalitzarSenseAccents(linia);
+                }
+
+                String liniaNova = linia.replace(paraula, reemplaçar);
+                contingut.append(liniaNova).append("\n");
+                contador += linia.length() - liniaNova.length(); 
+            }
+        } catch (IOException e) {
+            txtAreaResultats.append(prefix + "Error llegint el fitxer: " + fitxer.getName() + "\n");
+        }
+
+      
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(fitxer, StandardCharsets.UTF_8))) {
+            bw.write(contingut.toString());
+        } catch (IOException e) {
+            txtAreaResultats.append(prefix + "Error escrivint en el fitxer: " + fitxer.getName() + "\n");
+        }
+
+        txtAreaResultats.append(prefix + fitxer.getName() + " (" + (contador / (paraula.length())) + " reemplaçaments)\n");
+    }
+
+    /**
+     * Crea la finestra principal de l'aplicació i els seus components.
+     */
+    public Vista() {
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setBounds(100, 100, 600, 400);
+        contentPane = new JPanel();
+        contentPane.setBackground(Color.LIGHT_GRAY);
+        contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+        setContentPane(contentPane);
+        contentPane.setLayout(null);
+
+        JLabel lblDirectori = new JLabel("Directori:");
+        lblDirectori.setFont(new Font("Tahoma", Font.BOLD, 12));
+        lblDirectori.setBounds(10, 11, 100, 14);
+        contentPane.add(lblDirectori);
+
+        txtDirectori = new JTextField();
+        txtDirectori.setBounds(100, 10, 370, 20);
+        contentPane.add(txtDirectori);
+        txtDirectori.setColumns(10);
+
+        btnDirectori = new JButton("Seleccionar");
+        btnDirectori.setBounds(480, 9, 100, 23);
+        contentPane.add(btnDirectori);
+        btnDirectori.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                seleccionarDirectori();
+                txtAreaResultats.setText(""); 
+                File directori = new File(txtDirectori.getText());
+                if (directori.isDirectory()) {
+                    llistarArbreFitxers(directori, "", "");
+                } else {
+                    txtAreaResultats.append("No és un directori vàlid.\n");
+                }
+            }
+        });
+
+        JLabel lblParaula = new JLabel("Paraula a buscar:");
+        lblParaula.setFont(new Font("Tahoma", Font.BOLD, 12));
+        lblParaula.setBounds(10, 42, 120, 14);
+        contentPane.add(lblParaula);
+
+        txtParaula = new JTextField();
+        txtParaula.setBounds(140, 41, 370, 20);
+        contentPane.add(txtParaula);
+        txtParaula.setColumns(10);
+
+        JLabel lblReemplaçar = new JLabel("Reemplaçar amb:");
+        lblReemplaçar.setFont(new Font("Tahoma", Font.BOLD, 12));
+        lblReemplaçar.setBounds(10, 73, 120, 14);
+        contentPane.add(lblReemplaçar);
+
+        txtReemplaçar = new JTextField();
+        txtReemplaçar.setBounds(140, 72, 370, 20);
+        contentPane.add(txtReemplaçar);
+        txtReemplaçar.setColumns(10);
+
+        btnParaula = new JButton("Buscar");
+        btnParaula.setBounds(10, 104, 100, 23);
+        contentPane.add(btnParaula);
+        btnParaula.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                txtAreaResultats.setText(""); 
+                File directori = new File(txtDirectori.getText());
+                if (directori.isDirectory()) {
+                    buscarParaulaEnArbre(directori, txtParaula.getText(), "", "");
+                } else {
+                    txtAreaResultats.append("No és un directori vàlid.\n");
+                }
+            }
+        });
+
+        btnReemplaçar = new JButton("Reemplaçar");
+        btnReemplaçar.setBounds(120, 104, 100, 23);
+        contentPane.add(btnReemplaçar);
+        btnReemplaçar.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                txtAreaResultats.setText(""); 
+                File directori = new File(txtDirectori.getText());
+                if (directori.isDirectory()) {
+                    buscarYReemplaçarParaulaEnArbre(directori, txtParaula.getText(), txtReemplaçar.getText(), "", "");
+                } else {
+                    txtAreaResultats.append("No és un directori vàlid.\n");
+                }
+            }
+        });
+
+        chkAccents = new JCheckBox("Ignorar accents");
+        chkAccents.setBounds(10, 134, 150, 23);
+        contentPane.add(chkAccents);
+
+        chkMayusMinus = new JCheckBox("Ignorar majúscules/minúscules");
+        chkMayusMinus.setBounds(170, 134, 250, 23);
+        contentPane.add(chkMayusMinus);
+
+        txtAreaResultats = new JTextArea();
+        txtAreaResultats.setBorder(new LineBorder(new Color(0, 0, 0)));
+        txtAreaResultats.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(txtAreaResultats);
+        scrollPane.setBounds(10, 164, 570, 190);
+        contentPane.add(scrollPane);
+    }
+}

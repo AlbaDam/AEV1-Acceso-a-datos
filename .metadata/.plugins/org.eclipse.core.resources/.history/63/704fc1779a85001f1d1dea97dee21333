@@ -1,0 +1,186 @@
+package Evaluable1;
+
+import java.awt.BorderLayout;
+import java.awt.EventQueue;
+
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.border.EmptyBorder;
+import java.awt.Color;
+import javax.swing.border.LineBorder;
+import javax.swing.JLabel;
+import java.awt.Font;
+import javax.swing.JTextField;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JFileChooser;
+import javax.swing.JTextArea;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+
+public class Vista extends JFrame {
+
+	private static final long serialVersionUID = 1L;
+	private JPanel contentPane;
+	private JTextField txtDirectori;
+	private JTextField txtString;
+	private JTextField txtReemplaçar;
+	private JTextArea txtAreaResultats;
+	private JButton btnDirectori;
+	private JButton btnParaula;
+	private JButton btnReemplaçar;
+	private JCheckBox chkAccents;
+	private JCheckBox chkMayusMinus;
+	
+	
+	/**
+	 * Launch the application.
+	 */
+	public static void main(String[] args) {
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				try {
+					Vista frame = new Vista();
+					frame.setVisible(true);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+
+	 private void seleccionarDirectori() {
+		 JFileChooser fileChooser = new JFileChooser();
+	     fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+	     int resultat = fileChooser.showOpenDialog(this);
+
+	     if (resultat == JFileChooser.APPROVE_OPTION) {
+	    	 File directoriSeleccionat = fileChooser.getSelectedFile();
+	         txtDirectori.setText(directoriSeleccionat.getAbsolutePath());
+	        }
+	    }
+	
+	
+	   private void llistarArbreFitxers(File directori, String prefix, String subPrefix) {
+	        File[] fitxers = directori.listFiles();
+
+	        if (fitxers != null && fitxers.length > 0) {
+	            for (int i = 0; i < fitxers.length; i++) {
+	                File fitxer = fitxers[i];
+	                boolean esUltim = (i == fitxers.length - 1);
+
+	                if (fitxer.isDirectory()) {
+	                    txtAreaResultats.append(prefix + (esUltim ? "└-- " : "├-- ") + fitxer.getName() + "\n");
+	                    llistarArbreFitxers(fitxer, subPrefix + (esUltim ? "    " : "│   "), subPrefix + (esUltim ? "    " : "│   "));
+	                } else {
+	                    mostrarInformacioFitxer(fitxer, prefix + (esUltim ? "└-- " : "├-- "));
+	                }
+	            }
+	        }
+	    }
+	
+	
+	   private void mostrarInformacioFitxer(File fitxer, String prefix) {
+	        String nomFitxer = fitxer.getName();
+	        String extensio = obtenirExtensio(fitxer);
+	        long grandaria = fitxer.length()/1024;
+	        String ultimaModificacio = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new Date(fitxer.lastModified()));	
+	        txtAreaResultats.append(prefix + nomFitxer + extensio + " (" + grandaria + " – " + ultimaModificacio + ")\n");
+	    }
+
+	   private String obtenirExtensio(File fitxer) {
+	        String nomFitxer = fitxer.getName();
+	        int index = nomFitxer.lastIndexOf(".");
+	        if (index > 0 && index < nomFitxer.length() - 1) {
+	            return nomFitxer.substring(index + 1);
+	        }
+	        return "Sense extensió";
+	    }
+	
+	
+	/**
+	 * Create the frame.
+	 */
+	public Vista() {
+		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setBounds(100, 100, 1139, 743);
+		contentPane = new JPanel();
+		contentPane.setBackground(new Color(241, 233, 241));
+		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+		setContentPane(contentPane);
+		contentPane.setLayout(null);
+		
+		JPanel panel = new JPanel();
+		panel.setBorder(new LineBorder(new Color(0, 0, 0), 2));
+		panel.setBackground(new Color(186, 146, 184));
+		panel.setBounds(10, 10, 1105, 145);
+		contentPane.add(panel);
+		panel.setLayout(null);
+		
+		JLabel lblTitol = new JLabel("Gestió de fitxers");
+		lblTitol.setBounds(381, 44, 329, 51);
+		lblTitol.setFont(new Font("Valken", Font.PLAIN, 40));
+		panel.add(lblTitol);
+		
+		txtDirectori = new JTextField();
+		txtDirectori.setFont(new Font("Trebuchet MS", Font.PLAIN, 20));
+		txtDirectori.setBounds(20, 183, 259, 39);
+		contentPane.add(txtDirectori);
+		txtDirectori.setColumns(10);
+		
+		btnDirectori = new JButton("Buscar directori");
+		btnDirectori.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				
+			}
+		});
+		btnDirectori.setBackground(new Color(153, 255, 204));
+		btnDirectori.setFont(new Font("Tahoma", Font.PLAIN, 20));
+		btnDirectori.setBounds(289, 182, 185, 39);
+		contentPane.add(btnDirectori);
+		
+		txtString = new JTextField();
+		txtString.setFont(new Font("Trebuchet MS", Font.PLAIN, 20));
+		txtString.setColumns(10);
+		txtString.setBounds(670, 183, 238, 39);
+		contentPane.add(txtString);
+		
+		btnParaula = new JButton("Buscar paraula");
+		btnParaula.setBackground(new Color(153, 153, 255));
+		btnParaula.setFont(new Font("Tahoma", Font.PLAIN, 20));
+		btnParaula.setBounds(918, 183, 185, 39);
+		contentPane.add(btnParaula);
+		
+		chkMayusMinus = new JCheckBox("Majúscules/Minúscules");
+		chkMayusMinus.setFont(new Font("Tahoma", Font.PLAIN, 20));
+		chkMayusMinus.setBounds(698, 247, 231, 39);
+		contentPane.add(chkMayusMinus);
+		
+		txtAreaResultats = new JTextArea();
+		txtAreaResultats.setFont(new Font("Trebuchet MS", Font.PLAIN, 18));
+		txtAreaResultats.setBounds(20, 355, 1095, 318);
+		contentPane.add(txtAreaResultats);
+		
+		chkAccents = new JCheckBox("Accents");
+		chkAccents.setFont(new Font("Tahoma", Font.PLAIN, 20));
+		chkAccents.setBounds(970, 247, 106, 39);
+		contentPane.add(chkAccents);
+		
+		txtReemplaçar = new JTextField();
+		txtReemplaçar.setFont(new Font("Trebuchet MS", Font.PLAIN, 20));
+		txtReemplaçar.setColumns(10);
+		txtReemplaçar.setBounds(20, 247, 259, 39);
+		contentPane.add(txtReemplaçar);
+		
+		btnReemplaçar = new JButton("Reemplaçar paraula");
+		btnReemplaçar.setBackground(new Color(255, 153, 102));
+		btnReemplaçar.setFont(new Font("Tahoma", Font.PLAIN, 20));
+		btnReemplaçar.setBounds(289, 247, 238, 39);
+		contentPane.add(btnReemplaçar);
+	}
+}
